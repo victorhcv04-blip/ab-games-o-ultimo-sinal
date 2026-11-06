@@ -1,0 +1,412 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AB GAMES | O ÚLTIMO SINAL</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  background:#020604;
+  color:white;
+  font-family:Arial,sans-serif;
+  overflow:hidden;
+}
+
+#scene{
+  position:fixed;
+  inset:0;
+  z-index:0;
+}
+
+canvas{display:block}
+
+.shade{
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.15)),
+    linear-gradient(0deg,rgba(0,0,0,.65),transparent 70%);
+}
+
+.menu{
+  position:fixed;
+  inset:0;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  padding:9%;
+}
+
+.logo{
+  font-size:19px;
+  font-weight:900;
+  letter-spacing:7px;
+  margin-bottom:65px;
+  color:#fff;
+}
+
+.logo span{color:#67db96}
+
+.tag{
+  color:#8caa96;
+  font-size:11px;
+  letter-spacing:6px;
+  margin-bottom:18px;
+}
+
+h1{
+  font-size:clamp(40px,7vw,82px);
+  font-weight:900;
+  line-height:.95;
+  letter-spacing:2px;
+  text-shadow:0 5px 30px #000;
+}
+
+h1 span{color:#69d995}
+
+.description{
+  color:#b8c6bc;
+  font-size:13px;
+  letter-spacing:2px;
+  margin-top:25px;
+}
+
+#play{
+  margin-top:42px;
+  width:220px;
+  padding:18px;
+  background:#347d50;
+  border:1px solid #83e5a4;
+  color:white;
+  font-size:14px;
+  font-weight:bold;
+  letter-spacing:5px;
+  cursor:pointer;
+  transition:.3s;
+}
+
+#play:hover{
+  background:#4ca96d;
+  box-shadow:0 0 30px #347d5066;
+  transform:scale(1.04);
+}
+
+.footer{
+  position:fixed;
+  z-index:3;
+  bottom:20px;
+  left:25px;
+  right:25px;
+  display:flex;
+  justify-content:space-between;
+  color:#9ba99f;
+  font-size:10px;
+  letter-spacing:2px;
+}
+
+#transition{
+  position:fixed;
+  inset:0;
+  z-index:5;
+  background:#000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+  padding:20px;
+}
+
+#transition h2{
+  color:#75d99a;
+  letter-spacing:5px;
+  font-size:25px;
+}
+
+#transition p{
+  margin-top:15px;
+  color:#aaa;
+  font-size:12px;
+  letter-spacing:3px;
+}
+
+@media(max-width:600px){
+  .menu{padding:8%}
+  .logo{margin-bottom:55px}
+  .description{font-size:11px}
+  #play{width:190px}
+}
+</style>
+</head>
+
+<body>
+
+<div id="scene"></div>
+
+<div class="shade"></div>
+
+<div class="menu">
+
+  <div class="logo">AB <span>GAMES</span></div>
+
+  <div class="tag">UMA EXPERIÊNCIA DE MISTÉRIO</div>
+
+  <h1>O ÚLTIMO<br><span>SINAL</span></h1>
+
+  <p class="description">
+    ALGUNS SEGREDOS DEVERIAM PERMANECER ESCONDIDOS.
+  </p>
+
+  <button id="play">JOGAR</button>
+
+</div>
+
+<div class="footer">
+  <span>AB GAMES</span>
+  <span>GRÁFICOS AUTO</span>
+  <span>V. 1.0</span>
+</div>
+
+<div id="transition">
+  <h2>O ÚLTIMO SINAL</h2>
+  <p>PREPARANDO A FLORESTA...</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+<script>
+const container=document.getElementById("scene");
+
+let scene,camera,renderer;
+let trees=[];
+let particles;
+let clock=new THREE.Clock();
+
+function random(min,max){
+  return Math.random()*(max-min)+min;
+}
+
+function createTree(x,z){
+  const group=new THREE.Group();
+
+  const height=random(8,14);
+  const radius=random(.35,.65);
+
+  const trunkGeometry=new THREE.CylinderGeometry(
+    radius*.55,radius,height,7
+  );
+
+  const trunkMaterial=new THREE.MeshStandardMaterial({
+    color:0x30251d,
+    roughness:1
+  });
+
+  const trunk=new THREE.Mesh(trunkGeometry,trunkMaterial);
+  trunk.position.y=height/2;
+  group.add(trunk);
+
+  const barkGeometry=new THREE.CylinderGeometry(
+    radius*.56,radius*1.02,height,7,5
+  );
+
+  const barkMaterial=new THREE.MeshStandardMaterial({
+    color:0x403026,
+    roughness:1,
+    wireframe:false
+  });
+
+  const bark=new THREE.Mesh(barkGeometry,barkMaterial);
+  bark.position.y=height/2;
+  group.add(bark);
+
+  const foliageColors=[
+    0x10271b,0x142e20,0x193723,0x0b1d14
+  ];
+
+  const foliageMaterial=new THREE.MeshStandardMaterial({
+    color:foliageColors[Math.floor(Math.random()*foliageColors.length)],
+    roughness:1,
+    flatShading:true
+  });
+
+  const layers=Math.floor(random(3,5));
+
+  for(let i=0;i<layers;i++){
+    const size=height*.27-i*.12;
+
+    const foliage=new THREE.Mesh(
+      new THREE.ConeGeometry(size,size*1.8,7),
+      foliageMaterial
+    );
+
+    foliage.position.y=height*.48+i*height*.17;
+    group.add(foliage);
+  }
+
+  group.position.set(x,0,z);
+  group.rotation.y=random(0,Math.PI);
+  group.rotation.z=random(-.04,.04);
+
+  scene.add(group);
+  trees.push(group);
+}
+
+function createForest(){
+  for(let i=0;i<150;i++){
+    const side=Math.random()<.5?-1:1;
+    const x=side*random(5,28);
+    const z=random(-100,18);
+    createTree(x,z);
+  }
+}
+
+function createGround(){
+  const geometry=new THREE.PlaneGeometry(200,250,30,30);
+  const material=new THREE.MeshStandardMaterial({
+    color:0x171d16,
+    roughness:1
+  });
+
+  const ground=new THREE.Mesh(geometry,material);
+  ground.rotation.x=-Math.PI/2;
+  ground.position.set(0,-.15,-40);
+  scene.add(ground);
+}
+
+function createParticles(){
+  const positions=[];
+
+  for(let i=0;i<450;i++){
+    positions.push(
+      random(-35,35),
+      random(0,12),
+      random(-100,20)
+    );
+  }
+
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions,3)
+  );
+
+  const material=new THREE.PointsMaterial({
+    color:0xa2b5a5,
+    size:.045,
+    transparent:true,
+    opacity:.35
+  });
+
+  particles=new THREE.Points(geometry,material);
+  scene.add(particles);
+}
+
+function init(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x030805);
+  scene.fog=new THREE.FogExp2(0x071009,.018);
+
+  camera=new THREE.PerspectiveCamera(
+    65,
+    window.innerWidth/window.innerHeight,
+    .1,
+    180
+  );
+
+  camera.position.set(0,2.2,12);
+  camera.rotation.order="YXZ";
+
+  renderer=new THREE.WebGLRenderer({
+    antialias:!(/Android|iPhone|iPad/i.test(navigator.userAgent)),
+    powerPreference:"high-performance"
+  });
+
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio||1,1.5)
+  );
+
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+
+  container.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0x526b59,0x10140e,1.1));
+
+  const moonLight=new THREE.DirectionalLight(0x9bb9a2,.65);
+  moonLight.position.set(-8,15,5);
+  scene.add(moonLight);
+
+  const ambient=new THREE.AmbientLight(0x25382b,.35);
+  scene.add(ambient);
+
+  createGround();
+  createForest();
+  createParticles();
+
+  window.addEventListener("resize",resize);
+  animate();
+}
+
+function resize(){
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio||1,1.5)
+  );
+}
+
+let elapsed=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  const delta=Math.min(clock.getDelta(),.05);
+  elapsed+=delta;
+
+  // Movimento cinematográfico da câmera
+  if(!document.getElementById("transition").style.display||
+     document.getElementById("transition").style.display==="none"){
+    camera.position.z=12-elapsed*.65;
+    camera.position.y=2.2+Math.sin(elapsed*.45)*.045;
+    camera.position.x=Math.sin(elapsed*.22)*.25;
+  }
+
+  // Movimento sutil das partículas
+  if(particles){
+    particles.rotation.y=Math.sin(elapsed*.12)*.025;
+  }
+
+  renderer.render(scene,camera);
+}
+
+document.getElementById("play").addEventListener("click",()=>{
+  const transition=document.getElementById("transition");
+  transition.style.display="flex";
+
+  setTimeout(()=>{
+    transition.querySelector("p").textContent=
+      "A PRÓXIMA ETAPA SERÁ CONSTRUÍDA EM BREVE...";
+  },1800);
+});
+
+try{
+  init();
+}catch(error){
+  document.getElementById("scene").innerHTML=
+    '<div style="color:white;padding:30px">Não foi possível iniciar o gráfico 3D. Tente abrir em outro navegador.</div>';
+}
+</script>
+
+</body>
+</html>
