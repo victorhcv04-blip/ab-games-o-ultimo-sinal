@@ -173,7 +173,7 @@ h1 span{color:#69d995}
 <div class="footer">
   <span>AB GAMES</span>
   <span>GRÁFICOS AUTO</span>
-  <span>V. 2.0</span>
+  <span>V. 2.1</span>
 </div>
 
 <div id="transition">
@@ -188,6 +188,8 @@ const container=document.getElementById("scene");
 
 let scene,camera,renderer;
 let particles;
+let flashlightGroup;
+let flashlightBeam;
 let clock=new THREE.Clock();
 let elapsed=0;
 
@@ -197,7 +199,7 @@ function random(min,max){
   return Math.random()*(max-min)+min;
 }
 
-// TEXTURA PROCEDURAL DA CASCA DAS ÁRVORES
+// TEXTURA DA CASCA
 function createBarkTexture(){
   const canvas=document.createElement("canvas");
   canvas.width=512;
@@ -213,7 +215,6 @@ function createBarkTexture(){
     const y=random(0,512);
     const w=random(1,7);
     const h=random(5,65);
-
     const shade=Math.floor(random(25,100));
 
     ctx.fillStyle=`rgba(${shade},${shade*.72},${shade*.48},${random(.08,.35)})`;
@@ -252,7 +253,6 @@ function createGroundTexture(){
   ctx.fillStyle="#302c21";
   ctx.fillRect(0,0,1024,1024);
 
-  // Terra e pequenas variações
   for(let i=0;i<18000;i++){
     const x=random(0,1024);
     const y=random(0,1024);
@@ -284,7 +284,7 @@ function createGroundTexture(){
     ctx.restore();
   }
 
-  // Pequenos pontos de musgo
+  // Musgo
   for(let i=0;i<500;i++){
     ctx.fillStyle=`rgba(49,91,48,${random(.08,.25)})`;
     ctx.beginPath();
@@ -352,7 +352,6 @@ function createForest(){
   for(let i=0;i<count;i++){
 
     const side=Math.random()<.5?-1:1;
-
     const x=side*random(5,32);
     const z=random(-230,22);
 
@@ -367,7 +366,7 @@ function createForest(){
 
     trunks.setMatrixAt(i,dummy.matrix);
 
-    // Quatro níveis de copa
+    // Copas
     for(let layer=0;layer<4;layer++){
 
       const scale=1.7-layer*.27;
@@ -391,7 +390,7 @@ function createForest(){
       canopies.setMatrixAt(canopyIndex++,dummy.matrix);
     }
 
-    // Raízes expostas
+    // Raízes
     for(let r=0;r<3;r++){
 
       const angle=(r/3)*Math.PI*2+random(-.3,.3);
@@ -413,6 +412,10 @@ function createForest(){
       roots.setMatrixAt(rootIndex++,dummy.matrix);
     }
   }
+
+  trunks.instanceMatrix.needsUpdate=true;
+  canopies.instanceMatrix.needsUpdate=true;
+  roots.instanceMatrix.needsUpdate=true;
 
   scene.add(trunks);
   scene.add(canopies);
@@ -460,10 +463,11 @@ function createRocks(){
     rocks.setMatrixAt(i,dummy.matrix);
   }
 
+  rocks.instanceMatrix.needsUpdate=true;
   scene.add(rocks);
 }
 
-// VEGETAÇÃO BAIXA
+// VEGETAÇÃO
 function createVegetation(){
 
   const geometry=new THREE.ConeGeometry(.18,1.2,5);
@@ -504,6 +508,7 @@ function createVegetation(){
     plants.setMatrixAt(i,dummy.matrix);
   }
 
+  plants.instanceMatrix.needsUpdate=true;
   scene.add(plants);
 }
 
@@ -562,7 +567,167 @@ function createParticles(){
   scene.add(particles);
 }
 
-// ILUMINAÇÃO
+// LANTERNA NA MÃO DO JOGADOR
+function createFlashlight(){
+
+  flashlightGroup=new THREE.Group();
+
+  // Corpo principal da lanterna
+  const bodyMaterial=new THREE.MeshStandardMaterial({
+    color:0x171b1b,
+    metalness:.8,
+    roughness:.32
+  });
+
+  const body=new THREE.Mesh(
+    new THREE.CylinderGeometry(.065,.075,.42,16),
+    bodyMaterial
+  );
+
+  body.rotation.x=Math.PI/2;
+  body.position.z=-.13;
+  flashlightGroup.add(body);
+
+  // Cabeça da lanterna
+  const head=new THREE.Mesh(
+    new THREE.CylinderGeometry(.115,.085,.14,20),
+    new THREE.MeshStandardMaterial({
+      color:0x292f2e,
+      metalness:.85,
+      roughness:.25
+    })
+  );
+
+  head.rotation.x=Math.PI/2;
+  head.position.z=-.39;
+  flashlightGroup.add(head);
+
+  // Aro metálico
+  const ring=new THREE.Mesh(
+    new THREE.TorusGeometry(.103,.012,8,24),
+    new THREE.MeshStandardMaterial({
+      color:0x89938e,
+      metalness:.95,
+      roughness:.2
+    })
+  );
+
+  ring.position.z=-.465;
+  flashlightGroup.add(ring);
+
+  // Lente
+  const lens=new THREE.Mesh(
+    new THREE.CircleGeometry(.087,24),
+    new THREE.MeshBasicMaterial({
+      color:0xd8f0d8
+    })
+  );
+
+  lens.position.z=-.468;
+  flashlightGroup.add(lens);
+
+  // Botão lateral
+  const switchButton=new THREE.Mesh(
+    new THREE.SphereGeometry(.025,10,8),
+    new THREE.MeshStandardMaterial({
+      color:0x69d995,
+      metalness:.4,
+      roughness:.4
+    })
+  );
+
+  switchButton.position.set(.075,.025,-.12);
+  flashlightGroup.add(switchButton);
+
+  // Mão com luva escura
+  const glove=new THREE.Mesh(
+    new THREE.SphereGeometry(1,16,12),
+    new THREE.MeshStandardMaterial({
+      color:0x252b28,
+      roughness:1
+    })
+  );
+
+  glove.scale.set(.115,.095,.16);
+  glove.position.set(-.09,-.11,.015);
+  flashlightGroup.add(glove);
+
+  // Punho da luva
+  const cuff=new THREE.Mesh(
+    new THREE.CylinderGeometry(.075,.085,.16,10),
+    new THREE.MeshStandardMaterial({
+      color:0x171d19,
+      roughness:1
+    })
+  );
+
+  cuff.rotation.x=Math.PI/2;
+  cuff.position.set(-.09,-.105,.14);
+  flashlightGroup.add(cuff);
+
+  // Posição da lanterna na câmera
+  flashlightGroup.position.set(.46,-.39,-.78);
+  flashlightGroup.rotation.set(-.12,-.08,-.12);
+
+  camera.add(flashlightGroup);
+
+  // Feixe visual suave
+  const beamGeometry=new THREE.CylinderGeometry(
+    2.15,.075,8,24,1,true
+  );
+
+  const beamMaterial=new THREE.MeshBasicMaterial({
+    color:0xd9f4d7,
+    transparent:true,
+    opacity:.045,
+    side:THREE.DoubleSide,
+    depthWrite:false,
+    blending:THREE.AdditiveBlending
+  });
+
+  flashlightBeam=new THREE.Mesh(
+    beamGeometry,
+    beamMaterial
+  );
+
+  // A ponta estreita fica perto da lanterna
+  flashlightBeam.rotation.x=-Math.PI/2;
+  flashlightBeam.position.set(.46,-.39,-4.78);
+
+  camera.add(flashlightBeam);
+
+  // Luz principal
+  const spot=new THREE.SpotLight(
+    0xe0f4dc,
+    85,
+    32,
+    .38,
+    .65,
+    1.4
+  );
+
+  spot.position.set(.46,-.36,-.72);
+
+  const target=new THREE.Object3D();
+  target.position.set(.46,-.65,-25);
+
+  camera.add(spot);
+  camera.add(target);
+
+  spot.target=target;
+
+  // Luz próxima da lanterna
+  const glow=new THREE.PointLight(
+    0xc9efc6,
+    1.5,
+    4
+  );
+
+  glow.position.set(.46,-.36,-.85);
+  camera.add(glow);
+}
+
+// ILUMINAÇÃO AMBIENTE
 function createLighting(){
 
   scene.add(
@@ -636,6 +801,9 @@ function init(){
   createVegetation();
   createParticles();
 
+  // Adiciona a lanterna depois de criar a câmera
+  createFlashlight();
+
   window.addEventListener("resize",resize);
 
   animate();
@@ -676,6 +844,15 @@ function animate(){
 
     camera.position.x=
       Math.sin(elapsed*.22)*.25;
+
+    // Balanço suave da lanterna
+    if(flashlightGroup){
+      flashlightGroup.rotation.x=
+        -.12+Math.sin(elapsed*1.1)*.018;
+
+      flashlightGroup.rotation.z=
+        -.12+Math.sin(elapsed*.7)*.025;
+    }
   }
 
   if(particles){
@@ -709,7 +886,7 @@ try{
   container.innerHTML=
     '<div style="color:white;padding:30px">Não foi possível iniciar o gráfico 3D. Tente outro navegador.</div>';
 }
-
 </script>
+
 </body>
 </html>
